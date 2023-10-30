@@ -9,6 +9,7 @@
         <style>
         #maps{
             height: 400px;
+            width: 800px;
         }
         </style>
     </head>
@@ -29,6 +30,7 @@
         <input type="button" value="ルート作成" onclick="calcRoute()">
         
         <div id="maps"></div>
+        
         <script
             src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDh09VL82gIovb7lT94whL6Io0yJxxy9oQ&callback=initAutocomplete&libraries=places&v=weekly"
             defer
@@ -36,9 +38,13 @@
         
         
         <script>
-        var i = 3;
-        var wayPoints = new Array();
-        var startgoal = new Array();
+        var map;
+        var lat;
+        var lng;
+        var i = 4;
+        var points = [];
+        var wayPoints = [];
+
             function addForm() {
                 var input_data = document.createElement('input');
                 input_data.type = 'text';
@@ -67,16 +73,16 @@
             }
             
             function initAutocomplete() {
-              const map = new google.maps.Map(document.getElementById("maps"), {
+              map = new google.maps.Map(document.getElementById("maps"), {
                 center: { lat: 35.68125, lng: 139.76637 },
                 zoom: 13,
                 mapTypeId: "roadmap",
               });
               // Create the search box and link it to the UI element.
-              var pointer =[];
+ 
               for(var j = 1; j<=i; j++) {
+                
                 const input = document.getElementById('place_' + j);
-                pointer.push(input);
                 const searchBox  = new google.maps.places.SearchBox(input);
 
               // Bias the SearchBox results towards current map's viewport.
@@ -86,32 +92,24 @@
               });
               
               let markers = [];
-            
+              
               // Listen for the event fired when the user selects a prediction and retrieve
               // more details for that place.
               searchBox.addListener("places_changed", () => {
                 const places = searchBox.getPlaces();
-            
+                
                 if (places.length == 0) {
                   return;
                 }
-            
+
                 // Clear out the old markers.
                 markers.forEach((marker) => {
                   marker.setMap(null);
                 });
                 markers = [];
-            
+                
                 // For each place, get the icon, name and location.
                 const bounds = new google.maps.LatLngBounds();
-                
-                if(i-2 < 3) {
-                startgoal.push({location: bounds});
-                console.log(startgoal);
-                }else{
-                wayPoints.push({location: bounds});
-                console.log(wayPoints);
-                }
                 
                 places.forEach((place) => {
                   if (!place.geometry || !place.geometry.location) {
@@ -142,49 +140,68 @@
                   } else {
                     bounds.extend(place.geometry.location);
                   }
+                  
+                  lat = place.geometry.location.lat();
+                  lng = place.geometry.location.lng();
+                  place = [lat, lng];
+
+                  
+                  points.push(new google.maps.LatLng(lat,lng));
+
                 });
                 map.fitBounds(bounds);
+
               });
             } 
+            
           }
           
-          function calcRoute() {	
-
-          
+          function calcRoute() {
+ 
+            var origin = null;
+            var dest = null;
+            
+            for (var k = 0, len = points.length; k < len; k++) {
+              // 最初の場合、originに値をセット
+              if (origin == null) {
+                  origin = points[k];
+              }
+              else if (k == len - 1) {
+                  dest = points[k];
+              }else{
+                console.log(points[k]);
+                wayPoints.push({ location: points[k], stopover: true });
+              }
+            }
+            
           	// DirectionsService生成
           	var directionsService = new google.maps.DirectionsService();
           
           	// DirectionｓRenderer生成
           	var directionsRenderer = new google.maps.DirectionsRenderer();
           	directionsRenderer.setPanel(document.getElementById('route-panel'));
-          	directionsRenderer.setMap(maps);
+          	directionsRenderer.setMap(map);
           
           	// ルート検索実行
           	directionsService.route({
-          		origin: startgoal[0],  // 出発地
-          		destination: startgoal[1],  // 到着地
+          		origin: origin,  // 出発地
+          		destination: dest, // 到着地
           		avoidHighways: true, // 高速は利用しない
           		travelMode: google.maps.TravelMode.DRIVING, // 車モード
           		optimizeWaypoints: true, // 最適化を有効
-          		waypoints: wayPoints // 経由地
+          		waypoints: wayPoints, // 経由地
           	}, function(response, status) {
           		console.log(response);
           		if (status === google.maps.DirectionsStatus.OK) {
           			directionsRenderer.setDirections(response);
           			var legs = response.routes[0].legs;
           			
-          			// 総距離と総時間の合計する
-          			var dis = 0;
-          			var sec = 0;
-          			$.each(legs, function(i, val) {
-          				sec += val.duration.value;
-          				dis += val.distance.value;
-          			});
-          			console.log("distance=" + dis + ", secound=" + sec);
           		} else {
           			alert('Directions 失敗(' + status + ')');
           		}
-          	});	
+          	});
+          	wayPoints = [];
+          	points = [];
           };	
           
             window.initAutocomplete = initAutocomplete;
